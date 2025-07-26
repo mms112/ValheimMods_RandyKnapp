@@ -389,7 +389,7 @@ namespace AdvancedPortals
                 return;
             }
 
-            ObjectDB.instance.UpdateItemHashes();
+            ObjectDB.instance.UpdateRegisters();
 
             var pieceTables = new List<PieceTable>();
             foreach (var itemPrefab in ObjectDB.instance.m_items)
