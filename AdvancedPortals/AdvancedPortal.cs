@@ -8,6 +8,8 @@ namespace AdvancedPortals
     {
         public List<string> AllowedItems = new List<string>();
         public bool AllowEverything;
+        public float minItemDur;
+        public float maxRestedTime;
         private ZNetView _nview;
         public string DefaultName;
         private void Awake()
