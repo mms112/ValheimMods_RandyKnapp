@@ -13,9 +13,6 @@
 	  <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\Libs\ServerSync.dll">
-      <Link>ServerSync.dll</Link>
-    </EmbeddedResource>
     <Content Include="ILRepack.targets">
       <SubType>Designer</SubType>
     </Content>

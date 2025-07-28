@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System;
+using System.Collections.Generic;
 
 namespace AdvancedPortals
 {
@@ -19,6 +20,72 @@ namespace AdvancedPortals
         {
             CurrentAdvancedPortal = null;
             AllowAllPortal = false;
+        }
+
+        private static float calculateDurabilityCost(Inventory inventory, float minDur)
+        {
+            float durCost = 0f;
+
+            foreach (var item in inventory.GetAllItems())
+            {
+                if (item.m_shared.m_useDurability && !item.m_shared.m_destroyBroken)
+                {
+                    float durPercent = item.GetDurabilityPercentage();
+                    if (durPercent < minDur)
+                    {
+                        durCost += (minDur - durPercent) * 100;
+                    }
+                }
+            }
+
+            return durCost;
+        }
+
+        private static bool hasEnoughThunderstoneDurability(Inventory inventory, float minDur)
+        {
+            float totalTSDur = 0f;
+
+            foreach (var item in inventory.GetAllItems())
+            {
+                if (item.m_shared.m_name == "$item_thunderstone")
+                {
+                    totalTSDur += item.m_durability;
+                }
+            }
+
+            return totalTSDur >= calculateDurabilityCost(inventory, minDur);
+        }
+
+        private static int ThunderstoneSort(ItemDrop.ItemData x, ItemDrop.ItemData y)
+        {
+            return x.m_durability.CompareTo(y.m_durability);
+        }
+
+        private static void DrainThunderstones(Humanoid player, float minDur)
+        {
+            List<ItemDrop.ItemData> thunderstones = new List<ItemDrop.ItemData>();
+
+            foreach (var item in player.GetInventory().GetAllItems())
+            {
+                if (item.m_shared.m_name == "$item_thunderstone")
+                {
+                    thunderstones.Add(item);
+                }
+            }
+
+            thunderstones.Sort(ThunderstoneSort);
+
+            float durability = calculateDurabilityCost(player.GetInventory(), minDur);
+
+            foreach (var item in thunderstones)
+            {
+                float drain = Math.Min(durability, item.m_durability);
+                player.DrainEquipedItemDurability(item, drain);
+                durability -= drain;
+
+                if (durability <= 0)
+                    break;
+            }
         }
 
         [HarmonyPatch(typeof(TeleportWorld), nameof(TeleportWorld.UpdatePortal))]
@@ -81,18 +148,7 @@ namespace AdvancedPortals
                 if (CurrentAdvancedPortal == null || !CurrentAdvancedPortal.AllowEverything)
                 {
                     float minTeleportItemDur = CurrentAdvancedPortal?.minItemDur ?? AdvancedPortals.minTeleportItemDur.Value;
-                    foreach (var itemData in __instance.GetInventory().GetAllItems())
-                    {
-                        if (itemData.m_shared.m_useDurability)
-                        {
-                            float durLim = itemData.GetMaxDurability() * minTeleportItemDur;
-
-                            if (itemData.m_durability < durLim)
-                            {
-                                itemData.m_durability = Math.Max(-0.5f * itemData.GetMaxDurability(), itemData.m_durability - AdvancedPortals.durLossFactor.Value * (durLim - itemData.m_durability));
-                            }
-                        }
-                    }
+                    DrainThunderstones(__instance, minTeleportItemDur);
                 }
             }
         }
@@ -103,6 +159,12 @@ namespace AdvancedPortals
         {
             if (CurrentAdvancedPortal == null)
             {
+                if (!hasEnoughThunderstoneDurability(__instance, AdvancedPortals.minTeleportItemDur.Value))
+                {
+                    __result = false;
+                    return false;
+                }
+
                 foreach (var itemData in __instance.GetAllItems())
                 {
                     if ((itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable && !itemData.m_dropPrefab.name.Contains("Jerky"))
@@ -119,6 +181,12 @@ namespace AdvancedPortals
             if (CurrentAdvancedPortal.AllowEverything)
             {
                 __result = true;
+                return false;
+            }
+
+            if (!hasEnoughThunderstoneDurability(__instance, CurrentAdvancedPortal.minItemDur))
+            {
+                __result = false;
                 return false;
             }
 
