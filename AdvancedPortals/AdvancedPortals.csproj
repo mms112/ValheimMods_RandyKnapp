@@ -27,7 +27,22 @@
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Translations\English\$(AssemblyName).json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Translations\German\$(AssemblyName).json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(SolutionDir)\Config\$(AssemblyName)\randyknapp.mods.advancedportals.cfg" Link="Config\randyknapp.mods.advancedportals.cfg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Jotunn">
+      <HintPath>$(SolutionDir)\Plugins\Jotunn\Jotunn.dll</HintPath>
+    </Reference>
     <ProjectReference Include="..\..\ServerSync\ServerSync.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <UpToDateCheckInput Include="@(Content)" />
   </ItemGroup>
   <Import Project="..\Common\Common.projitems" Label="Shared" />
 </Project>

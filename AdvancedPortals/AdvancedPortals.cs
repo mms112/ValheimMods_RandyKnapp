@@ -7,6 +7,7 @@ using BepInEx.Configuration;
 using Common;
 using HarmonyLib;
 using JetBrains.Annotations;
+using Jotunn.Managers;
 using ServerSync;
 using UnityEngine;
 
@@ -39,7 +40,6 @@ namespace AdvancedPortals
         private static ConfigEntry<bool> _serverConfigLocked;
         public static ConfigEntry<float> minTeleportItemDur;
         public static ConfigEntry<float> maxTeleportRestedTime;
-        public static ConfigEntry<float> durLossFactor;
         private static ConfigEntry<string> disallowedItemsList;
         public static List<string> disallowedItems;
         private static ConfigEntry<bool> _ancientPortalEnabled;
@@ -73,33 +73,32 @@ namespace AdvancedPortals
 
             _serverConfigLocked = SyncedConfig("Config Sync", "Lock Config", true, "[Server Only] The configuration is locked and may not be changed by clients once it has been synced from the server. Only valid for server config, will have no effect on clients.");
 
-            minTeleportItemDur = SyncedConfig("General", "minTeleportItemDur", 0.5f, "Minimum durability to allow item to be teleported through base teleporter without damage");
-            maxTeleportRestedTime = SyncedConfig("General", "maxTeleportRestedTime", 300.0f, "Maximum rested duration after teleporting through base teleporter");
-            durLossFactor = SyncedConfig("General", "durLossFactor", 0.5f, "Durability loss factor of items that are teleported below the durability limit. The loss per teleport below the limit scales lineary with this factor.");
+            minTeleportItemDur = SyncedConfig("General", "minTeleportItemDur", 0.5f, "Minimum durability to allow item to be teleported through without using a thunderstone.");
+            maxTeleportRestedTime = SyncedConfig("General", "maxTeleportRestedTime", 300.0f, "Maximum rested duration after teleporting through base teleporter.");
             disallowedItemsList = SyncedConfig("General", "disallowedItems", "", "Items that can never be teleported, unless it is explicitly stated in the allow list or the teleporter allows all items.");
 
             _ancientPortalEnabled = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Enabled", true, "Enable the Ancient Portal");
             _ancientPortalRecipe = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Recipe", "ElderBark:20,Iron:5,SurtlingCore:2", "The items needed to build the Ancient Portal. A comma separated list of ITEM:QUANTITY pairs separated by a colon.");
             _ancientPortalAllowedItems = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Allowed Items", "Copper, CopperOre, CopperScrap, Tin, TinOre, Bronze", "A comma separated list of the item types allowed through the Ancient Portal");
             _ancientPortalAllowEverything = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Allow Everything", false, "Allow all items through the Ancient Portal (overrides Allowed Items)");
-            _ancientPortalMinItemDur = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Minimum Durrability", 0.5f, "Minimum durability to allow item to be teleported through the Ancient Portal without damage");
-            _ancientPortalMaxRestedTime = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Maximum Rested Time", 480.0f, "Maximum rested duration after teleporting through the Ancient Portal");
+            _ancientPortalMinItemDur = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Minimum Durrability", 0.5f, "Minimum durability to allow item to be teleported through the Ancient Portal using a thunderstone.");
+            _ancientPortalMaxRestedTime = SyncedConfig("Portal 1 - Ancient", "Ancient Portal Maximum Rested Time", 480.0f, "Maximum rested duration after teleporting through the Ancient Portal.");
 
             _obsidianPortalEnabled = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Enabled", true, "Enable the Obsidian Portal");
             _obsidianPortalRecipe = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Recipe", "Obsidian:20,Silver:5,SurtlingCore:2", "The items needed to build the Obsidian Portal. A comma separated list of ITEM:QUANTITY pairs separated by a colon.");
             _obsidianPortalAllowedItems = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Allowed Items", "Iron, IronScrap", "A comma separated list of the item types allowed through the Obsidian Portal");
             _obsidianPortalAllowEverything = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Allow Everything", false, "Allow all items through the Obsidian Portal (overrides Allowed Items)");
             _obsidianPortalAllowPreviousPortalItems = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Use All Previous", true, "Additionally allow all items from the Ancient Portal");
-            _obsidianPortalMinItemDur = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Minimum Durrability", 0.5f, "Minimum durability to allow item to be teleported through the Obsidian Portal without damage");
-            _obsidianPortalMaxRestedTime = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Maximum Rested Time", 600.0f, "Maximum rested duration after teleporting through the Obsidian Portal");
+            _obsidianPortalMinItemDur = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Minimum Durrability", 0.5f, "Minimum durability to allow item to be teleported through the Obsidian Portal using a thunderstone.");
+            _obsidianPortalMaxRestedTime = SyncedConfig("Portal 2 - Obsidian", "Obsidian Portal Maximum Rested Time", 600.0f, "Maximum rested duration after teleporting through the Obsidian Portal.");
 
             _blackMarblePortalEnabled = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Enabled", true, "Enable the Black Marble Portal");
             _blackMarblePortalRecipe = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Recipe", "BlackMarble:20,BlackMetal:5,Eitr:2", "The items needed to build the Black Marble Portal. A comma separated list of ITEM:QUANTITY pairs separated by a colon.");
             _blackMarblePortalAllowedItems = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Allowed Items", "Silver, SilverOre", "A comma separated list of the item types allowed through the Black Marble Portal");
             _blackMarblePortalAllowEverything = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Allow Everything", true, "Allow all items through the Black Marble Portal (overrides Allowed Items and minimum durability)");
             _blackMarblePortalAllowPreviousPortalItems = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Use All Previous", true, "Additionally allow all items from the Obsidian and Ancient Portal");
-            _blackMarblePortalMinItemDur = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Minimum Durrability", 0.5f, "Minimum durability to allow item to be teleported through the Black Marble Portal without damage");
-            _blackMarblePortalMaxRestedTime = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Maximum Rested Time", 900.0f, "Maximum rested duration after teleporting through the Black Marble Portal");
+            _blackMarblePortalMinItemDur = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Minimum Durrability", 0.5f, "Minimum durability to allow item to be teleported through the Black Marble Portal using a thunderstone.");
+            _blackMarblePortalMaxRestedTime = SyncedConfig("Portal 3 - Black Marble", "Black Marble Portal Maximum Rested Time", 900.0f, "Maximum rested duration after teleporting through the Black Marble Portal.");
 
             _configSync.AddLockingConfigEntry(_serverConfigLocked);
 
@@ -131,7 +130,16 @@ namespace AdvancedPortals
                         advPortal.maxRestedTime = _ancientPortalMaxRestedTime.Value;
 
                         var itemDrop = prefab.GetComponent<Piece>();
-                        itemDrop.m_description += $" Can Teleport: ({(advPortal.AllowEverything ? "Anything" : string.Join(", ", advPortal.AllowedItems))})";
+                        var allowedNames = new List<string>();
+
+                        foreach (var itemName in advPortal.AllowedItems)
+                        {
+                            string tempName = Localization.instance.Localize(PrefabManager.Instance.GetPrefab(itemName)?.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_name ?? string.Empty);
+                            if (!tempName.IsNullOrWhiteSpace())
+                                allowedNames.Add(tempName);
+                        }
+
+                        itemDrop.m_description += $"\n{Localization.instance.Localize("$txt_can_teleport")}: {(advPortal.AllowEverything ? Localization.instance.Localize("$txt_anything") : string.Join(", ", allowedNames))}";
                     })
                 });
             }
@@ -158,7 +166,16 @@ namespace AdvancedPortals
                         advPortal.maxRestedTime = _obsidianPortalMaxRestedTime.Value;
 
                         var itemDrop = prefab.GetComponent<Piece>();
-                        itemDrop.m_description += $" Can Teleport: ({(advPortal.AllowEverything ? "Anything" : string.Join(", ", advPortal.AllowedItems))})";
+                        var allowedNames = new List<string>();
+
+                        foreach (var itemName in advPortal.AllowedItems)
+                        {
+                            string tempName = Localization.instance.Localize(PrefabManager.Instance.GetPrefab(itemName)?.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_name ?? string.Empty);
+                            if (!tempName.IsNullOrWhiteSpace())
+                                allowedNames.Add(tempName);
+                        }
+
+                        itemDrop.m_description += $"\n{Localization.instance.Localize("$txt_can_teleport")}: {(advPortal.AllowEverything ? Localization.instance.Localize("$txt_anything") : string.Join(", ", allowedNames))}";
                     })
                 });
             }
@@ -187,7 +204,16 @@ namespace AdvancedPortals
                         advPortal.maxRestedTime = _blackMarblePortalMaxRestedTime.Value;
 
                         var itemDrop = prefab.GetComponent<Piece>();
-                        itemDrop.m_description += $" Can Teleport: ({(advPortal.AllowEverything ? "Anything" : string.Join(", ", advPortal.AllowedItems))})";
+                        var allowedNames = new List<string>();
+
+                        foreach (var itemName in advPortal.AllowedItems)
+                        {
+                            string tempName = Localization.instance.Localize(PrefabManager.Instance.GetPrefab(itemName)?.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_name ?? string.Empty);
+                            if (!tempName.IsNullOrWhiteSpace())
+                                allowedNames.Add(tempName);
+                        }
+
+                        itemDrop.m_description += $"\n{Localization.instance.Localize("$txt_can_teleport")}: {(advPortal.AllowEverything ? Localization.instance.Localize("$txt_anything") : string.Join(", ", allowedNames))}";
                     })
                 });
             }
