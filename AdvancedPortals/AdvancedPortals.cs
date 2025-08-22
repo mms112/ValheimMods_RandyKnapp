@@ -26,6 +26,7 @@ namespace AdvancedPortals
     [BepInPlugin(PluginId, DisplayName, Version)]
     [BepInIncompatibility("com.github.xafflict.UnrestrictedPortals")]
     [BepInDependency("org.bepinex.plugins.targetportal", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(Jotunn.Main.ModGuid)]
     public class AdvancedPortals : BaseUnityPlugin
     {
         public const string PluginId = "randyknapp.mods.advancedportals";
