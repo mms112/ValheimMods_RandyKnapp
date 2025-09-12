@@ -167,7 +167,7 @@ namespace AdvancedPortals
 
                 foreach (var itemData in __instance.GetAllItems())
                 {
-                    if ((itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable && !itemData.m_dropPrefab.name.Contains("Jerky"))
+                    if ((itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable && !itemData.m_dropPrefab.name.Contains("Jerky") && !itemData.m_dropPrefab.name.Contains("Philter"))
                         || AdvancedPortals.disallowedItems.Contains(itemData.m_dropPrefab.name))
                     {
                         __result = false;
@@ -205,7 +205,7 @@ namespace AdvancedPortals
 
                 if ((itemData.m_crafterID != 0L || AdvancedPortals.disallowedItems.Contains(itemData.m_dropPrefab.name) || itemData.m_shared.m_isDrink) &&
                     itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable &&
-                    !itemData.m_dropPrefab.name.Contains("Jerky"))
+                    !itemData.m_dropPrefab.name.Contains("Jerky") && !itemData.m_dropPrefab.name.Contains("Philter"))
                 {
                     __result = false;
                     return false;
