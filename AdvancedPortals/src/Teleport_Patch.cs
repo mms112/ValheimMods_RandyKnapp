@@ -1,4 +1,6 @@
 ﻿using HarmonyLib;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AdvancedPortals
@@ -7,6 +9,7 @@ namespace AdvancedPortals
     public static class Teleport_Patch
     {
         public static AdvancedPortal CurrentAdvancedPortal;
+        public static bool AllowAllPortal = false;
 
         public static void TargetPortal_HandlePortalClick_Prefix()
         {
@@ -51,11 +54,81 @@ namespace AdvancedPortals
         public static void Generic_Prefix(TeleportWorld __instance)
         {
             CurrentAdvancedPortal = __instance.GetComponent<AdvancedPortal>();
+            AllowAllPortal = __instance.m_allowAllItems;
         }
 
         public static void Generic_Postfix()
         {
             CurrentAdvancedPortal = null;
+            AllowAllPortal = false;
+        }
+
+        private static float calculateDurabilityCost(Inventory inventory, float minDur)
+        {
+            float durCost = 0f;
+
+            foreach (var item in inventory.GetAllItems()) {
+                if (item.m_shared.m_useDurability && !item.m_shared.m_destroyBroken) {
+                    float durPercent = item.GetDurabilityPercentage();
+                    if (durPercent < minDur) {
+                        durCost += (minDur - durPercent) * 100;
+                    }
+                }
+            }
+
+            return durCost;
+        }
+
+        private static bool hasEnoughThunderstoneDurability(Inventory inventory, float minDur)
+        {
+            float totalTSDur = 0f;
+
+            foreach (var item in inventory.GetAllItems()) {
+                if (item.m_shared.m_name == "$item_thunderstone") {
+                    totalTSDur += item.m_durability;
+                }
+            }
+
+            return totalTSDur >= calculateDurabilityCost(inventory, minDur);
+        }
+
+        private static int ThunderstoneSort(ItemDrop.ItemData x, ItemDrop.ItemData y)
+        {
+            return x.m_durability.CompareTo(y.m_durability);
+        }
+
+        private static void DrainThunderstones(Humanoid player, float minDur) 
+        {
+            List<ItemDrop.ItemData> thunderstones = new List<ItemDrop.ItemData>();
+
+            foreach (var item in player.GetInventory().GetAllItems()) {
+                if (item.m_shared.m_name == "$item_thunderstone") {
+                    thunderstones.Add(item);
+                }
+            }
+
+            thunderstones.Sort(ThunderstoneSort);
+
+            float durability = calculateDurabilityCost(player.GetInventory(), minDur);
+
+            foreach (var item in thunderstones) {
+                float drain = Math.Min(durability, item.m_durability);
+                player.DrainEquipedItemDurability(item, drain);
+                durability -= drain;
+
+                if (durability <= 0)
+                    break;
+            }
+        }
+
+        private static bool isAllowedItem(string itemName) 
+        {
+            foreach (var allowedName in Portals.allowedItems)
+            {
+                if (itemName.Contains(allowedName))
+                    return true;
+            }
+            return false;
         }
 
         [HarmonyPatch(typeof(TeleportWorld), nameof(TeleportWorld.UpdatePortal))]
@@ -63,6 +136,7 @@ namespace AdvancedPortals
         public static void TeleportWorld_UpdatePortal_Prefix(TeleportWorld __instance)
         {
             CurrentAdvancedPortal = __instance.GetComponent<AdvancedPortal>();
+            AllowAllPortal = __instance.m_allowAllItems;
         }
 
         // Finalizer, not postfix: UpdatePortal runs on an InvokeRepeating timer for every portal in the
@@ -74,6 +148,7 @@ namespace AdvancedPortals
         public static void TeleportWorld_UpdatePortal_Finalizer()
         {
             CurrentAdvancedPortal = null;
+            AllowAllPortal = false;
         }
 
         [HarmonyPatch(typeof(TeleportWorld), nameof(TeleportWorld.Teleport))]
@@ -81,6 +156,7 @@ namespace AdvancedPortals
         public static void TeleportWorld_Teleport_Prefix(TeleportWorld __instance)
         {
             CurrentAdvancedPortal = __instance.GetComponent<AdvancedPortal>();
+            AllowAllPortal = __instance.m_allowAllItems;
         }
 
         [HarmonyPatch(typeof(TeleportWorld), nameof(TeleportWorld.Teleport))]
@@ -88,44 +164,119 @@ namespace AdvancedPortals
         public static void TeleportWorld_Teleport_Finalizer()
         {
             CurrentAdvancedPortal = null;
+            AllowAllPortal = false;
         }
 
-        // High priority to run before other mods
-        [HarmonyPatch(typeof(Inventory), nameof(Inventory.IsTeleportable))]
+        [HarmonyPatch(typeof(Player), nameof(Player.TeleportTo))]
         [HarmonyPostfix]
-        [HarmonyPriority(Priority.High)]
-        public static void Inventory_IsTeleportable_Pretfix(Inventory __instance, ref bool __result)
+        private static void Player_TeleportTo_Postfix(Player __instance)
         {
-            if (CurrentAdvancedPortal == null || __result == true)
+            if (!AllowAllPortal && !Environment.StackTrace.Contains("Interact"))
             {
-                // Do not change result for non-advanced portals, or if it already allowed to teleport
-                return;
+                StatusEffect RestedEffect = __instance.GetSEMan().GetStatusEffect(SEMan.s_statusEffectRested.GetHashCode());
+                if (RestedEffect)
+                {
+                    float maxRestedTime = CurrentAdvancedPortal?.maxRestedTime ?? Portals.maxTeleportRestedTime.Value;
+                    if ((RestedEffect.m_ttl - RestedEffect.m_time) > maxRestedTime)
+                    {
+                        RestedEffect.m_ttl = maxRestedTime;
+                        RestedEffect.m_time = 0.0f;
+                    }
+                }
+
+                if (CurrentAdvancedPortal == null || !CurrentAdvancedPortal.AllowEverything)
+                {
+                    float minTeleportItemDur = CurrentAdvancedPortal?.minItemDur ?? Portals.minTeleportItemDur.Value;
+                    DrainThunderstones(__instance, minTeleportItemDur);
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(Inventory), nameof(Inventory.IsTeleportable))]
+        [HarmonyPrefix]
+        public static bool Inventory_IsTeleportable_Prefix(Inventory __instance, ref bool __result)
+        {
+            if (CurrentAdvancedPortal == null)
+            {
+                if (!hasEnoughThunderstoneDurability(__instance, Portals.minTeleportItemDur.Value)) {
+                    __result = false;
+                    return false;
+                }
+
+                foreach (var itemData in __instance.GetAllItems())
+                {
+                    if ((itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable && !isAllowedItem(itemData.m_dropPrefab.name))
+                        || Portals.disallowedItems.Contains(itemData.m_dropPrefab.name))
+                    {
+                        __result = false;
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
             if (CurrentAdvancedPortal.AllowEverything)
             {
                 __result = true;
-                return;
+                return false;
             }
 
-            foreach (ItemDrop.ItemData itemData in __instance.GetAllItems())
+            if (!hasEnoughThunderstoneDurability(__instance, CurrentAdvancedPortal.minItemDur)) {
+                __result = false;
+                return false;
+            }
+
+            bool allowMinorMead = CurrentAdvancedPortal.AllowedItems.Contains("MinorMead");
+
+            foreach (var itemData in __instance.GetAllItems())
             {
-                if (itemData.m_shared.m_teleportable)
+                if (allowMinorMead && itemData.m_shared.m_isDrink)
                 {
-                    continue;
+                    if (itemData.m_dropPrefab.name.Contains("Minor") || itemData.m_dropPrefab.name.Contains("Tasty"))
+                        continue;
                 }
 
-                // A non-teleportable item with no drop prefab cannot be matched against the allow-list;
-                // treat it as blocking rather than silently letting it through (vanilla blocks on the
-                // shared flag alone and never consults the prefab).
-                if (itemData.m_dropPrefab == null ||
-                    !CurrentAdvancedPortal.AllowedItems.Contains(itemData.m_dropPrefab.name))
+                if (itemData.m_dropPrefab != null && CurrentAdvancedPortal.AllowedItems.Contains(itemData.m_dropPrefab.name))
+                    continue;
+
+                if ((itemData.m_crafterID != 0L || Portals.disallowedItems.Contains(itemData.m_dropPrefab.name) || itemData.m_shared.m_isDrink) &&
+                    itemData.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable &&
+                    !isAllowedItem(itemData.m_dropPrefab.name))
                 {
-                    return;
+                    __result = false;
+                    return false;
+                }
+
+                if (!itemData.m_shared.m_teleportable)
+                {
+                    __result = false;
+                    return false;
                 }
             }
 
             __result = true;
+            return false;
+        }
+
+        [HarmonyPatch(typeof(ItemDrop.ItemData), nameof(ItemDrop.ItemData.GetTooltip), new Type[] { typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int), typeof(bool) })]
+        [HarmonyPrefix]
+        public static void ItemDrop_GetTooltip_Prefix(ItemDrop.ItemData item, ref bool __state)
+        {
+            __state = item.m_shared.m_teleportable;
+
+            if ((item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable) ||
+                (item.m_shared.m_useDurability && (item.m_durability < (item.GetMaxDurability() * Portals.minTeleportItemDur.Value))))
+            {
+                item.m_shared.m_teleportable = false;
+            }
+        }
+
+        [HarmonyPatch(typeof(ItemDrop.ItemData), nameof(ItemDrop.ItemData.GetTooltip), new Type[] { typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int), typeof(bool) })]
+        [HarmonyPostfix]
+        public static void ItemDrop_GetTooltip_Postfix(ItemDrop.ItemData item, bool __state)
+        {
+            item.m_shared.m_teleportable = __state;
         }
     }
 }

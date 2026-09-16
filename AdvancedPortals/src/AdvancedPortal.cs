@@ -7,6 +7,8 @@ namespace AdvancedPortals
     {
         public List<string> AllowedItems = new List<string>();
         public bool AllowEverything;
+        public float minItemDur;
+        public float maxRestedTime;
 
         private void Awake()
         {

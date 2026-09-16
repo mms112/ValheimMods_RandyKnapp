@@ -1,4 +1,5 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using Common;
 using HarmonyLib;
@@ -6,6 +7,7 @@ using JetBrains.Annotations;
 using Jotunn.Entities;
 using Jotunn.Managers;
 using Jotunn.Utils;
+using ServerSync;
 using System;
 using System.IO;
 using System.Reflection;
@@ -18,6 +20,7 @@ namespace AdvancedPortals
     [BepInPlugin(PluginId, DisplayName, Version)]
     [BepInIncompatibility("com.github.xafflict.UnrestrictedPortals")]
     [BepInDependency("org.bepinex.plugins.targetportal", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(Jotunn.Main.ModGuid)]
     public class AdvancedPortals : BaseUnityPlugin
     {
         public const string PluginId = "randyknapp.mods.advancedportals";
@@ -26,6 +29,9 @@ namespace AdvancedPortals
 
         private static string ConfigFileName = PluginId + ".cfg";
         private static string ConfigFileFullPath = BepInEx.Paths.ConfigPath + Path.DirectorySeparatorChar + ConfigFileName;
+        internal static readonly ConfigSync configSync = new ConfigSync(PluginId) { DisplayName = DisplayName, CurrentVersion = Version, MinimumRequiredVersion = Version };
+        private static ConfigEntry<bool> configLocked;
+
 
         public static readonly ManualLogSource APLogger = BepInEx.Logging.Logger.CreateLogSource(DisplayName);
         private Harmony _harmony;
@@ -36,6 +42,7 @@ namespace AdvancedPortals
             // Wire the shared Common support layer (config binder, piece loader, drawers) to this plugin
             // before anything else in Common is used -- ConfigBinder and ModLogger read it for the config
             // file and log source.
+            ModContext.CfgSync = configSync;
             ModContext.Initialize(this, APLogger, "AdvancedPortals");
 
             AssetBundle assetBundle = AssetBundleLoader.LoadIntoContext("advancedportals", typeof(AdvancedPortals).Assembly);
@@ -50,8 +57,10 @@ namespace AdvancedPortals
             // SaveOnConfigSet writes the whole .cfg once per bound entry. Batch the portal registrations
             // and flush once instead; this is a measurable chunk of mod load time.
             ModContext.SaveOnSet(false);
+            configLocked = ConfigBinder.BindServerConfig("Common", "LockConfiguration", true, "Configuration is locked and can be changed by server admins only.");
             Portals.RegisterAll();
             ModContext.SaveOnSet(true);
+            configSync.AddLockingConfigEntry(configLocked);
 
             // Fix up mocked portal connect effects
             GameObject fxAncient = assetBundle.LoadAsset<GameObject>("fx_portal_connected_ancient");

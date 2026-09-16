@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="$(SolutionDir)\valheim.targets" />
   <PropertyGroup>
+    <RootNamespace>AdvancedPortals</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <ItemGroup>
@@ -9,15 +10,7 @@
 	<None Remove="Screenshots\*" />
   </ItemGroup>
   <ItemGroup>
-	  <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="..\Libs\ServerSync.dll">
-      <Link>ServerSync.dll</Link>
-    </EmbeddedResource>
-    <Content Include="ILRepack.targets">
-      <SubType>Designer</SubType>
-    </Content>
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.2" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\ValheimUnity\AssetBundles\advancedportals">
@@ -25,11 +18,25 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Include="manifest.json" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Translations\English\$(AssemblyName).json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Translations\German\$(AssemblyName).json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(SolutionDir)\Config\$(AssemblyName)\randyknapp.mods.advancedportals.cfg" Link="Config\randyknapp.mods.advancedportals.cfg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Jotunn">
+      <HintPath>$(SolutionDir)\Plugins\Jotunn\Jotunn.dll</HintPath>
+    </Reference>
     <ProjectReference Include="..\..\ServerSync\ServerSync.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <UpToDateCheckInput Include="@(Content)" />
   </ItemGroup>
   <Import Project="..\Common\Common.projitems" Label="Shared" />
 </Project>

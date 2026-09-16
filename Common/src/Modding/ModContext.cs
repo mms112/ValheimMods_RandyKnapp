@@ -1,8 +1,9 @@
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using Jotunn.Entities;
 using UnityEngine;
+using ServerSync;
 
 namespace Common {
     /// <summary>
@@ -18,6 +19,8 @@ namespace Common {
 
         /// <summary>The owning plugin's config file. <see cref="ConfigBinder"/> binds against this.</summary>
         public static ConfigFile Cfg { get; private set; }
+
+        public static ConfigSync CfgSync { get; set; }
 
         /// <summary>The owning plugin's BepInPlugin GUID, used to namespace Jotunn registrations.</summary>
         public static string PluginGuid { get; private set; }

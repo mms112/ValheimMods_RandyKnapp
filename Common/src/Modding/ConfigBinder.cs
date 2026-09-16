@@ -1,5 +1,6 @@
-using BepInEx.Configuration;
+﻿using BepInEx.Configuration;
 using Jotunn.Extensions;
+using ServerSync;
 
 namespace Common {
     /// <summary>
@@ -13,33 +14,34 @@ namespace Common {
     /// </summary>
     public static class ConfigBinder {
         private static ConfigFile Cfg => ModContext.Cfg;
+        private static ConfigSync configSync => ModContext.CfgSync;
 
         // -- Server synced (admin only) ------------------------------------------------------------
 
         public static ConfigEntry<bool> BindServerConfig(string category, string key, bool value, string description,
                                                         AcceptableValueBase acceptableValues = null, bool advanced = false) {
-            return Cfg.Bind(category, key, value,
+            return config(category, key, value,
                 new ConfigDescription(description, acceptableValues,
                     new ConfigurationManagerAttributes { IsAdminOnly = true, IsAdvanced = advanced }));
         }
 
         public static ConfigEntry<int> BindServerConfig(string category, string key, int value, string description,
                                                        bool advanced = false, int valMin = 0, int valMax = 150) {
-            return Cfg.Bind(category, key, value,
+            return config(category, key, value,
                 new ConfigDescription(description, new AcceptableValueRange<int>(valMin, valMax),
                     new ConfigurationManagerAttributes { IsAdminOnly = true, IsAdvanced = advanced }));
         }
 
         public static ConfigEntry<float> BindServerConfig(string category, string key, float value, string description,
                                                          bool advanced = false, float valMin = 0f, float valMax = 150f) {
-            return Cfg.Bind(category, key, value,
+            return config(category, key, value,
                 new ConfigDescription(description, new AcceptableValueRange<float>(valMin, valMax),
                     new ConfigurationManagerAttributes { IsAdminOnly = true, IsAdvanced = advanced }));
         }
 
         public static ConfigEntry<string> BindServerConfig(string category, string key, string value, string description,
                                                           AcceptableValueList<string> acceptableValues = null, bool advanced = false) {
-            return Cfg.Bind(category, key, value,
+            return config(category, key, value,
                 new ConfigDescription(description, acceptableValues,
                     new ConfigurationManagerAttributes { IsAdminOnly = true, IsAdvanced = advanced }));
         }
@@ -47,7 +49,7 @@ namespace Common {
         /// <summary>Generic escape hatch for types without a dedicated overload above.</summary>
         public static ConfigEntry<T> BindServerConfig<T>(string category, string key, T value, string description,
                                                         AcceptableValueBase acceptableValues, bool advanced = false) {
-            return Cfg.Bind(category, key, value,
+            return config(category, key, value,
                 new ConfigDescription(description, acceptableValues,
                     new ConfigurationManagerAttributes { IsAdminOnly = true, IsAdvanced = advanced }));
         }
@@ -56,9 +58,9 @@ namespace Common {
 
         public static ConfigEntry<T> BindClientConfig<T>(string category, string key, T value, string description,
                                                         AcceptableValueBase acceptableValues = null, bool advanced = false) {
-            return Cfg.Bind(category, key, value,
+            return config(category, key, value,
                 new ConfigDescription(description, acceptableValues,
-                    new ConfigurationManagerAttributes { IsAdminOnly = false, IsAdvanced = advanced }));
+                    new ConfigurationManagerAttributes { IsAdminOnly = false, IsAdvanced = advanced }), false);
         }
 
         // -- Ordered ---------------------------------------------------------------------------------
@@ -92,6 +94,20 @@ namespace Common {
             return Cfg.BindConfigInOrder(category, key, value, description, synced: false,
                 acceptableValues: acceptableValues,
                 configAttributes: new ConfigurationManagerAttributes { IsAdvanced = advanced });
+        }
+
+        private static ConfigEntry<T> config<T>(string group, string name, T defaultValue, ConfigDescription description, bool synchronizedSetting = true) {
+            ConfigDescription extendedDescription = new ConfigDescription(
+                description.Description +
+                (synchronizedSetting ? " [Synced with Server]" : " [Not Synced with Server]"),
+                description.AcceptableValues, description.Tags);
+
+            ConfigEntry<T> configEntry = Cfg.Bind(group, name, defaultValue, extendedDescription);
+
+            SyncedConfigEntry<T> syncedConfigEntry = configSync.AddConfigEntry(configEntry);
+            syncedConfigEntry.SynchronizedConfig = synchronizedSetting;
+
+            return configEntry;
         }
     }
 }

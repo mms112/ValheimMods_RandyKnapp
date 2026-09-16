@@ -89,7 +89,7 @@
   <Target Name="CheckValheimBuildPaths" BeforeTargets="BeforeBuild">
     <Warning Condition="!Exists('$(GamePath)\valheim_Data\Managed')"
              Text="Valheim's Managed folder was not found (GamePath='$(GamePath)'). Vanilla references will not resolve. Set GamePath in Environment.props - see Environment.props.example." />
-    <Warning Condition="!Exists('$(BepinexPath)core\BepInEx.dll')"
+    <Warning Condition="!Exists('$(BepinexPath)\core\BepInEx.dll')"
              Text="BepInEx was not found (BepinexPath='$(BepinexPath)'). BepInEx, Harmony, Mono.Cecil and MonoMod references will not resolve. Set BepinexPath in Environment.props - see Environment.props.example." />
   </Target>
 
